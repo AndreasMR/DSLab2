@@ -32,7 +32,7 @@ public class TCPSocketProcessor implements Runnable{
 	public void run() {
 		
 		//Map to store Sockets for nodes, so the client can issue commands to nodes independently from other clients
-		Map<NodeInfo, Socket> nodeSockets = new HashMap<NodeInfo, Socket>();
+//		Map<NodeInfo, Socket> nodeSockets = new HashMap<NodeInfo, Socket>();
 		
 		try{
 
@@ -126,12 +126,12 @@ public class TCPSocketProcessor implements Runnable{
 								while((node = nodeManager.getNode(op)) != null){
 									
 									try{
-										nodeSocket = nodeSockets.get(node);
+//										nodeSocket = nodeSockets.get(node);
 										
-										if(nodeSocket == null){
+//										if(nodeSocket == null){
 											nodeSocket = new Socket(node.getHostname(), node.getPort());
-											nodeSockets.put(node, nodeSocket);
-										}
+//											nodeSockets.put(node, nodeSocket);
+//										}
 										
 										// create a reader to retrieve messages send by the node
 										BufferedReader nodeReader = new BufferedReader(new InputStreamReader(nodeSocket.getInputStream()));
@@ -148,9 +148,13 @@ public class TCPSocketProcessor implements Runnable{
 										}catch(SocketException ex){
 											//Socket is not connected anymore (node was closed, but could be open again)
 											//try to create a new socket
-											nodeSockets.remove(node);
-											//try next node
+//											nodeSockets.remove(node);
+											//try same node again
 											continue;
+										} finally {
+											if(nodeSocket != null && !nodeSocket.isClosed()){
+												nodeSocket.close();
+											}
 										}
 										
 									} catch (IOException e) {
@@ -158,6 +162,10 @@ public class TCPSocketProcessor implements Runnable{
 										nodeManager.deactivate(node);
 										//try next node
 										continue;
+									} finally {
+										if(nodeSocket != null && !nodeSocket.isClosed()){
+											nodeSocket.close();
+										}
 									}
 									
 									break;
@@ -248,15 +256,15 @@ public class TCPSocketProcessor implements Runnable{
 		}finally{
 			socketManager.close(socket);
 			
-			for(Socket s : nodeSockets.values()){
-				if (s != null && !s.isClosed())
-					try {
-						s.close();
-					} catch (IOException e) {
-						// Ignored because we cannot handle it
-					}
-			}
-			nodeSockets.clear();
+//			for(Socket s : nodeSockets.values()){
+//				if (s != null && !s.isClosed())
+//					try {
+//						s.close();
+//					} catch (IOException e) {
+//						// Ignored because we cannot handle it
+//					}
+//			}
+//			nodeSockets.clear();
 			
 			socket = null;
 			socketManager = null;
