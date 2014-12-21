@@ -159,6 +159,9 @@ public class Node implements INodeCli, Runnable {
 				if(request.equals("!exit")){
 					break;
 				}
+                else if(request.equals("!resources")){
+                    userResponseStream.println(share);
+                }
 			}
 			
 			reader.close();
