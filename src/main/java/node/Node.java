@@ -28,6 +28,10 @@ public class Node implements INodeCli, Runnable {
 	private int cUDPPort;
 	private int nAlive;
 	private String nOperators;
+
+    private int rmin;
+    private int share;
+    private int nodesLeftToMessage;
 	
 	private NodeAliveThread nodeAliveThread;
 	private ServerSocket serverSocket;
@@ -55,6 +59,8 @@ public class Node implements INodeCli, Runnable {
 		cUDPPort = config.getInt("controller.udp.port");
 		nAlive = config.getInt("node.alive");
 		nOperators = config.getString("node.operators");
+        rmin = config.getInt("node.rmin");
+
 		
 		NodeLogger.setLogDir(logdir);
 		
@@ -63,8 +69,69 @@ public class Node implements INodeCli, Runnable {
 
 	@Override
 	public void run() {
-		
-		// create a new thread to check send isAlive packets
+        String received = null;
+        try {
+            //request resource info from controller
+            DatagramSocket socket = new DatagramSocket();
+            System.out.println("foo");
+            sendUDPMessageToController("!hello", socket);
+            System.out.println("foo2");
+
+            //receive answer
+            byte[] buf = new byte[256];
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+            System.out.println("foo3");
+
+            socket.receive(packet);
+            received = new String(packet.getData(), 0, packet.getLength()).trim();
+            System.out.println("reply to hello: " + received); //TODO: delete debug
+
+        } catch (SocketException e) {
+            e.printStackTrace(); //TODO handle
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String[] parts = received.split(" ");
+        int rmax = Integer.parseInt(parts[0]);
+        int nodeCount = (parts.length - 1) / 2;
+        int resourcesPerNode = rmax / (nodeCount + 1);
+        if(resourcesPerNode < this.rmin){
+            userResponseStream.println("Insufficient controller resources for node. Shutting down.");
+            try {
+                exit();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+        if(nodeCount > 0) {
+            String[] IPs = new String[nodeCount];
+            int[] ports = new int[nodeCount];
+            int i = 0;
+            while (i < nodeCount) {
+                IPs[i] = parts[i * 2 + 1];
+                ports[i] = Integer.parseInt(parts[i * 2 + 2]);
+                i++;
+            }
+            boolean canComeOnline = new NodeCommitter(IPs, ports, resourcesPerNode).tryCommit();
+            if (!canComeOnline) {
+                userResponseStream.println("insufficient controller resources for node. Shutting down.");
+                try {
+                    exit();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+            else{
+                share = resourcesPerNode;
+            }
+        }
+
+        // create a new thread to check send isAlive packets
 		nodeAliveThread = new NodeAliveThread();
 		nodeAliveThread.start();
 
@@ -73,7 +140,7 @@ public class Node implements INodeCli, Runnable {
 			serverSocket = new ServerSocket(tcpPort);
 
 			// handle incoming connections from client in a separate thread
-			new NodeTCPListenerThread(serverSocket).start();
+			new NodeTCPListenerThread(serverSocket, this).start();
 
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot listen on TCP port.", e);
@@ -167,7 +234,7 @@ public class Node implements INodeCli, Runnable {
 				while( !exit ) {
 					
 					// open a new DatagramSocket
-					DatagramSocket datagramSocket = new DatagramSocket();
+					/*DatagramSocket datagramSocket = new DatagramSocket();
 					
 					byte[] buffer = ("!alive " + tcpPort + " " + nOperators).getBytes();
 					
@@ -175,7 +242,10 @@ public class Node implements INodeCli, Runnable {
 					// for sending the packet to the server
 					DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(cHost), cUDPPort);
 					datagramSocket.send(packet);
-					datagramSocket.close();
+					datagramSocket.close();*/
+                    DatagramSocket socket = new DatagramSocket();
+                    sendUDPMessageToController("!alive " + tcpPort + " " + nOperators, socket);
+                    socket.close();
 					
 					Thread.sleep(nAlive);
 				}
@@ -194,6 +264,25 @@ public class Node implements INodeCli, Runnable {
 		public void exit(){
 			this.exit = true;
 		}
-	};
+	}
+
+    private void sendUDPMessageToController(String message, DatagramSocket socket) throws IOException {
+        // open a new DatagramSocket
+
+        byte[] buffer = message.getBytes();
+
+        // create the datagram packet with all the necessary information
+        // for sending the packet to the server
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(cHost), cUDPPort);
+        socket.send(packet);
+    }
+
+    public synchronized void setShare(int share){
+        this.share = share;
+    }
+
+    public int getRmin(){
+        return rmin;
+    }
 
 }

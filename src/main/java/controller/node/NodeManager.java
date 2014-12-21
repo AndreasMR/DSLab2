@@ -16,6 +16,12 @@ public class NodeManager {
 	private List <NodeInfo> nodesSub = Collections.synchronizedList(new ArrayList<NodeInfo>());
 	private List <NodeInfo> nodesMul = Collections.synchronizedList(new ArrayList<NodeInfo>());
 	private List <NodeInfo> nodesDiv = Collections.synchronizedList(new ArrayList<NodeInfo>());
+
+    private int rmax;
+
+    public NodeManager(int rmax){
+        this.rmax = rmax;
+    }
 	
 	public void add(NodeInfo node){
 		nodes.put(node.getPort(), node);
@@ -81,4 +87,8 @@ public class NodeManager {
 		NodeInfo ret = opNodes.get(0);
 		return ret;
 	}
+
+    public int getRmax(){
+        return rmax;
+    }
 }
