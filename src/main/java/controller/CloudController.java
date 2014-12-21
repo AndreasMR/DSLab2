@@ -31,6 +31,7 @@ public class CloudController implements ICloudControllerCli, Runnable {
 	private int udpPort; //UDP port on which to listen
 	private int nodeTimeout; //time in ms after which a node is set offline
 	private int nodeCheckPeriod; //period in ms to check for timeouts
+    private int rmax; //maximum resources available to nodes
 	
 	private NodeTimeoutThread nodeTimeoutThread = null;
 	private DatagramSocket datagramSocket = null;
@@ -61,8 +62,9 @@ public class CloudController implements ICloudControllerCli, Runnable {
 		udpPort = config.getInt( "udp.port" );
 		nodeTimeout = config.getInt( "node.timeout" );
 		nodeCheckPeriod = config.getInt( "node.checkPeriod" );
+        rmax = config.getInt("controller.rmax");
 		
-		nodeManager = new NodeManager();
+		nodeManager = new NodeManager(rmax);
 		userManager = new UserManager();
 		
 	}
