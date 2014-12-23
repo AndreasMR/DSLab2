@@ -1,11 +1,15 @@
 package controller.node;
 
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Set;
 
 
-public class NodeInfo {
+public class NodeInfo implements Serializable{
+	
+	private static final long serialVersionUID = -8180533176302572962L;
+	
 	private int port = 0;
 	private String hostname = "";
 	private String ip = "";

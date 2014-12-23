@@ -1,13 +1,12 @@
 package controller;
 
-import admin.INotificationCallback;
-import model.ComputationRequestInfo;
-
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.security.Key;
 import java.util.LinkedHashMap;
 import java.util.List;
+
+import model.ComputationRequestInfo;
+import admin.INotificationCallback;
 
 /**
  * Please note that this interface is not needed for Lab 1, but will
@@ -38,16 +37,13 @@ public interface IAdminConsole extends Remote {
 			INotificationCallback callback) throws RemoteException;
 
 	/**
-	 * Requests some information about each known node, online or offline.<br/>
-	 * A node is known if it has sent at least one <i>isAlive</i> packet since
-	 * the cloud controller's last startup. The information shall contain the
-	 * node's IP, TCP port, online status (online/offline) and usage. E.g.:
+	 * Requests information about each log-file. E.g.:
 	 * 
-	 * <pre>
-	 * 1. IP:127.0.0.1 Port:10000 offline Usage: 750
-	 * 2. IP:127.0.0.2 Port:10000 online  Usage: 200
 	 * </pre>
-	 *
+	 * 20141001_161542.169 [node1]: 5 + 20 = 25<br>
+ 	 * 20141001_161542.203 [node2]: 25 / 2 = 12
+	 * </pre>
+	 * 
 	 * @return a list of {@link ComputationRequestInfo} of all requests handled
 	 *         so far
 	 * @throws RemoteException
@@ -75,7 +71,7 @@ public interface IAdminConsole extends Remote {
 	 * @throws RemoteException
 	 *             if a remote error occurs
 	 */
-	Key getControllerPublicKey() throws RemoteException;
+//	Key getControllerPublicKey() throws RemoteException;
 
 	/**
 	 * Sets or replaces the public key ({@code &lt;username&gt;.pub.pem}) of the
@@ -88,5 +84,5 @@ public interface IAdminConsole extends Remote {
 	 * @throws RemoteException
 	 *             if a remote error occurs
 	 */
-	void setUserPublicKey(String username, byte[] key) throws RemoteException;
+//	void setUserPublicKey(String username, byte[] key) throws RemoteException;
 }

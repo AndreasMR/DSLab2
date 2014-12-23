@@ -3,10 +3,14 @@ package node;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
+import model.ComputationRequestInfo;
 import controller.tcp.TCPSocketManager;
 
 public class NodeTCPSocketProcessor implements Runnable{
@@ -96,12 +100,17 @@ public class NodeTCPSocketProcessor implements Runnable{
                     }
                     break; //no response required
                 }
+                else if(parts.length == 1 && parts[0].equals("!getLogs")){
+                	new ObjectOutputStream(socket.getOutputStream()).writeObject(NodeLogger.getLogs());
+                	response = "";
+                }
                 else{
 					response = "Error: Not a valid command.";
 				}
 
 				//print response
-				writer.println(response);
+				if(!response.equals(""))
+					writer.println(response);
 
 			}
 			
