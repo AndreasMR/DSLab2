@@ -35,7 +35,7 @@ public class TCPSocketProcessor implements Runnable{
 //		Map<NodeInfo, Socket> nodeSockets = new HashMap<NodeInfo, Socket>();
 		
 		try{
-
+			// TODO: TcpChannel, Base64Channel hier einfuegen
 			int port = socket.getPort();
 
 			// prepare the input reader for the socket
