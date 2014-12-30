@@ -109,7 +109,9 @@ public class TCPSocketProcessor implements Runnable{
 							response = "Error: You do not have enough credits for this calculation.";
 
 						}else{
-
+							
+							nodeManager.addOperatorStatistics(parts);
+							
 							int lostCredits = 0;
 
 							int no1 = Integer.parseInt(parts[1]);

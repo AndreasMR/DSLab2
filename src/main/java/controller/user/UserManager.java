@@ -1,5 +1,6 @@
 package controller.user;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,10 +8,10 @@ import java.util.Set;
 
 import util.Config;
 
-public class UserManager {
+public class UserManager implements Serializable{
 	
-	private Config userConfig = null;	
-	
+	private static final long serialVersionUID = -4931075231364670010L;
+
 	//name-UserInfo mapping of all users registered in the property file
 	private Map<String, UserInfo> registeredUsers = Collections.synchronizedMap(new HashMap<String, UserInfo>());
 	
@@ -21,7 +22,7 @@ public class UserManager {
 	public UserManager(){
 		
 		//Read registered users from property file
-		userConfig = new Config( "user" );
+		Config userConfig = new Config( "user" );
 		
 		Set<String> userKeys = userConfig.listKeys();
 		for( String key : userKeys ) {

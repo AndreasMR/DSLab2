@@ -5,15 +5,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.math.BigInteger;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
+import java.rmi.NotBoundException;
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.Arrays;
 
 import util.Config;
-
 import controller.node.NodeInfo;
 import controller.node.NodeManager;
+import controller.rmi.AdminService;
 import controller.tcp.TCPListenerThread;
 import controller.udp.UDPListenerThread;
 import controller.user.UserInfo;
@@ -31,6 +36,9 @@ public class CloudController implements ICloudControllerCli, Runnable {
 	private int udpPort; //UDP port on which to listen
 	private int nodeTimeout; //time in ms after which a node is set offline
 	private int nodeCheckPeriod; //period in ms to check for timeouts
+    private int rmax; //maximum resources available to nodes
+    private String rmiBindingName;
+	private int rmiPort;
 	
 	private NodeTimeoutThread nodeTimeoutThread = null;
 	private DatagramSocket datagramSocket = null;
@@ -38,6 +46,9 @@ public class CloudController implements ICloudControllerCli, Runnable {
 	
 	private NodeManager nodeManager = null;
 	private UserManager userManager = null;
+	
+	private Registry reg;
+	private AdminService adminService;
 
 	/**
 	 * @param componentName
@@ -61,8 +72,11 @@ public class CloudController implements ICloudControllerCli, Runnable {
 		udpPort = config.getInt( "udp.port" );
 		nodeTimeout = config.getInt( "node.timeout" );
 		nodeCheckPeriod = config.getInt( "node.checkPeriod" );
+        rmax = config.getInt("controller.rmax");
+        rmiBindingName = config.getString("binding.name");
+		rmiPort = config.getInt("controller.rmi.port");
 		
-		nodeManager = new NodeManager();
+		nodeManager = new NodeManager(rmax);
 		userManager = new UserManager();
 		
 	}
@@ -94,6 +108,22 @@ public class CloudController implements ICloudControllerCli, Runnable {
 			
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot listen on TCP port.", e);
+		}
+
+		// create Registry and set up RMI Service
+		try {
+			reg = LocateRegistry.createRegistry(rmiPort);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		adminService = new AdminService(userManager, nodeManager);
+		try {
+			Remote adminServiceStub = UnicastRemoteObject.exportObject(adminService, 0);
+			reg.rebind(rmiBindingName, adminServiceStub);
+		} catch (RemoteException ex) {
+			// TODO Auto-generated catch block
+			ex.printStackTrace();
 		}
 
 		userResponseStream.println("Server is up! Enter \"!exit\" to exit!");
@@ -186,7 +216,17 @@ public class CloudController implements ICloudControllerCli, Runnable {
 		if (serverSocket != null){
 			serverSocket.close();
 		}
-
+		
+		//Unexport AdminService
+		UnicastRemoteObject.unexportObject(adminService, true);
+		
+		//Unbind RMI Service
+		try {
+			reg.unbind(rmiBindingName);
+		} catch (NotBoundException e) {
+			// no handling necessary
+		}
+				
 		return null;
 	}
 

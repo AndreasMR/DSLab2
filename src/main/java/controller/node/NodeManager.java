@@ -1,5 +1,6 @@
 package controller.node;
 
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,8 +8,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class NodeManager {
+public class NodeManager implements Serializable{
 	
+	private static final long serialVersionUID = 2794134793557429473L;
+
 	//Port-NodeInfo mapping
 	private Map <Integer, NodeInfo> nodes = Collections.synchronizedMap(new HashMap<Integer, NodeInfo>());
 	
@@ -16,6 +19,19 @@ public class NodeManager {
 	private List <NodeInfo> nodesSub = Collections.synchronizedList(new ArrayList<NodeInfo>());
 	private List <NodeInfo> nodesMul = Collections.synchronizedList(new ArrayList<NodeInfo>());
 	private List <NodeInfo> nodesDiv = Collections.synchronizedList(new ArrayList<NodeInfo>());
+
+    private int rmax;
+    
+    private Map<Character, Long> opOccurrences;
+
+    public NodeManager(int rmax){
+        this.rmax = rmax;
+        opOccurrences = Collections.synchronizedMap(new HashMap<Character, Long>());
+        opOccurrences.put('+', 0L);
+        opOccurrences.put('-', 0L);
+        opOccurrences.put('*', 0L);
+        opOccurrences.put('/', 0L);
+    }
 	
 	public void add(NodeInfo node){
 		nodes.put(node.getPort(), node);
@@ -81,4 +97,24 @@ public class NodeManager {
 		NodeInfo ret = opNodes.get(0);
 		return ret;
 	}
+	
+	public void addOperatorStatistics(String[]terms){
+		for(int i = 3; i < terms.length; i+=2){
+			char op = terms[i-1].charAt(0);
+			if(op == '+' || op == '-' || op == '*' || op == '/'){
+//				System.out.println("op: " + op + " : " + (opOccurrences.get(op) + 1));
+				synchronized(this){
+					opOccurrences.put(op, opOccurrences.get(op) + 1);
+				}
+			}
+		}
+	}
+	
+	public Map<Character, Long> getOperatorOccurrences(){
+		return opOccurrences;
+	}
+
+    public int getRmax(){
+        return rmax;
+    }
 }

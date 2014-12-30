@@ -3,20 +3,26 @@ package node;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
+import model.ComputationRequestInfo;
 import controller.tcp.TCPSocketManager;
 
 public class NodeTCPSocketProcessor implements Runnable{
 	
 	private Socket socket;
 	private TCPSocketManager socketManager;
+    private Node node;
 
-	public NodeTCPSocketProcessor( Socket socket, TCPSocketManager socketManager ){
+	public NodeTCPSocketProcessor( Socket socket, TCPSocketManager socketManager, Node node ){
 		this.socket = socket;
 		this.socketManager = socketManager;
+        this.node = node;
 	}
 	
 	@Override
@@ -73,12 +79,38 @@ public class NodeTCPSocketProcessor implements Runnable{
 					
 					NodeLogger.createLog(System.currentTimeMillis(), logContent);
 
-				}else{
+				}
+                else if(parts.length == 2 && parts[0].equals("!share")){
+                    int newShare = Integer.parseInt(parts[1]);
+                    System.out.println(newShare);
+                    System.out.println(node.getRmin());
+                    if(newShare >= node.getRmin()){
+                        writer.println("!ok");
+                    }
+                    else{
+                        System.out.println("nok");
+                        writer.println("!nok");
+                    }
+                    String phase2 = reader.readLine();
+                    if(phase2.equals("!commit")){
+                        node.setShare(newShare);
+                    }
+                    else if(phase2.equals("!rollback")){
+                        //do something?
+                    }
+                    break; //no response required
+                }
+                else if(parts.length == 1 && parts[0].equals("!getLogs")){
+                	new ObjectOutputStream(socket.getOutputStream()).writeObject(NodeLogger.getLogs());
+                	response = "";
+                }
+                else{
 					response = "Error: Not a valid command.";
 				}
 
 				//print response
-				writer.println(response);
+				if(!response.equals(""))
+					writer.println(response);
 
 			}
 			

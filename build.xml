@@ -80,6 +80,12 @@
 			<arg value="client" />
 		</java>
 	</target>
+	
+	<target name="run-admin" depends="compile" description="Run Admin-Console.">
+		<java classname="admin.AdminConsole" fork="true" classpathref="project.classpath">
+			<arg value="admin" />
+		</java>
+	</target>
 
 	<target name="clean" description="Clean build products.">
 		<delete dir="${build.dir}" />

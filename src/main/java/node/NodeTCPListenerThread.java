@@ -12,9 +12,11 @@ public class NodeTCPListenerThread extends Thread {
 	
 	private ServerSocket serverSocket;
 	private ExecutorService threadPool = Executors.newCachedThreadPool();
+    private Node node;
 	
-	public NodeTCPListenerThread(ServerSocket serverSocket) {
+	public NodeTCPListenerThread(ServerSocket serverSocket, Node node) {
 		this.serverSocket = serverSocket;
+        this.node = node;
 	}
 
 	public void run() {
@@ -31,7 +33,7 @@ public class NodeTCPListenerThread extends Thread {
 				socketManager.add(socket);
 
 				//Process Socket in separate Thread
-				threadPool.execute(new NodeTCPSocketProcessor(socket, socketManager));
+				threadPool.execute(new NodeTCPSocketProcessor(socket, socketManager, node));
 
 			}
 			

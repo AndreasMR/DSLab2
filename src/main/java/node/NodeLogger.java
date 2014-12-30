@@ -2,12 +2,17 @@ package node;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import model.ComputationRequestInfo;
 
 public abstract class NodeLogger {
 	
@@ -41,6 +46,29 @@ public abstract class NodeLogger {
 	public static void cleanup(){
 		if(logThread != null)
 			logThread.exit();
+	}
+	
+	public static List<ComputationRequestInfo> getLogs(){
+		List<ComputationRequestInfo> logs = new ArrayList<ComputationRequestInfo>();
+		
+		File[] logFiles = new File(logdir).listFiles();
+		for(File f : logFiles){
+			
+			ComputationRequestInfo cri = null;
+			
+			try {
+				cri = new ComputationRequestInfo(f);
+				
+			} catch (IOException e) {
+				// Just skip
+				continue;
+			}
+			
+			if(cri != null)
+				logs.add(cri);
+		}
+		
+		return logs;
 	}
 	
 	private static class LogEntry{
