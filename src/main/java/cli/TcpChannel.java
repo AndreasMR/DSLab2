@@ -34,5 +34,19 @@ public class TcpChannel implements Channel {
 		writer.println(msg);
 	}
 	
+	public String exit(){
+		try {
+			if(socket != null && !socket.isClosed()){
+				socket.close();
+				socket = null;
+			}
+			return null;
+		}catch (IOException e){
+			System.err.println("Fehler beim Schließen des Sockets");
+			return null;
+		}
+	
+	}
+	
 	
 }

@@ -1,14 +1,33 @@
 package controller.tcp;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.HashMap;
-import java.util.Map;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Security;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Base64;
+
+import util.Config;
+import util.Keys;
 import controller.node.NodeInfo;
 import controller.node.NodeManager;
 import controller.user.UserInfo;
@@ -20,12 +39,23 @@ public class TCPSocketProcessor implements Runnable{
 	private TCPSocketManager socketManager;
 	private UserManager userManager;
 	private NodeManager nodeManager;
+	private Config config;
+	private PrivateKey controller_key;
+	private PublicKey user_pubkey;
 
-	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager){
+	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager, Config config){
 		this.socket = socket;
 		this.socketManager = socketManager;
 		this.userManager = userManager;
 		this.nodeManager = nodeManager;
+		Security.addProvider(new BouncyCastleProvider());
+		this.config = config;
+		try {
+			this.controller_key = Keys.readPrivatePEM(new File(config.getString("key")));
+		} catch (IOException e) {
+			this.controller_key = null;
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
@@ -44,33 +74,109 @@ public class TCPSocketProcessor implements Runnable{
 			// prepare the writer for responding to clients requests
 			PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 
+			
+			SecureRandom secureRandom = null;
 			String request;
 			String response = "";
+			String name = "";
+			KeyGenerator generator;
+			final String B64 = "a-zA-Z0-9/+";
+			Cipher cipher = null;
+			Cipher aes_encryption = null;
+			Cipher aes_decryption = null;
 			
 			// read client requests
 			while ((request = reader.readLine()) != null) {
-				
+
 				//get user by port, if null is returned, no user has been logged in via the client on the port
 				UserInfo user = userManager.getActiveUser(port);
 				
-				String[] parts = request.split("\\s+");
-
-				if(parts.length == 1 && parts[0].equals("!exit")){
+				if (user == null){
+					byte[] encrypted_message = Base64.decode(request);
+					byte[] decrypted_message = null;
+					byte[] controller_challenge = null;
+					byte[] client_challenge = null;
+					byte[] iv_vector = null;
+					byte[] aes_key = null;
+					byte[] auth_response = null;
+					//String message = null;
+					cipher = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");
+					cipher.init(Cipher.DECRYPT_MODE, controller_key);
+					decrypted_message = cipher.doFinal(encrypted_message);
+					request = new String(decrypted_message);
+					//System.out.println(request);
 					
-					userManager.deactivate(port);
+					String[] parts = request.split("\\s+");
 					
-					if(user != null){
-						response = "Successfully logged out. Exiting client.";
-					}else{
-						response = "Exiting client.";
+					if(parts.length == 3 && parts[0].equals("!authenticate")){
+						try {
+							this.user_pubkey = Keys.readPublicPEM(new File(config.getString("keys.dir")+"/"+parts[1]+".pub.pem"));
+						} catch (Exception e) {
+							this.user_pubkey = null;
+							System.err.println(e.getMessage());
+						}
+						if (this.user_pubkey != null){
+							name = parts[1];
+							secureRandom = new SecureRandom();
+							final byte[] challenge = new byte[32];
+							final byte[] iv = new byte[16];
+							secureRandom.nextBytes(challenge);
+							secureRandom.nextBytes(iv);
+							controller_challenge = Base64.encode(challenge);
+							client_challenge = parts[2].getBytes();
+							iv_vector = Base64.encode(iv);
+							generator = KeyGenerator.getInstance("AES");
+							// KEYSIZE is in bits
+							generator.init(256);
+							SecretKey key = generator.generateKey(); 
+							aes_key = Base64.encode(key.getEncoded());
+							response = "!ok ";
+							auth_response = new byte[response.length()+client_challenge.length+controller_challenge.length+aes_key.length+iv_vector.length+3];
+							int i;
+							auth_response[0] = '!';auth_response[1] = 'o'; auth_response[2] = 'k'; auth_response[3] = ' ';
+							i = 4;
+							for (int x = 0; x < client_challenge.length; x++)
+								auth_response[i++] = client_challenge[x];
+							auth_response[i++] = ' ';
+							for (int y = 0; y < controller_challenge.length; y++)
+								auth_response[i++] = controller_challenge[y];
+							auth_response[i++] = ' ';
+							for (int z = 0; z < aes_key.length; z++)
+								auth_response[i++] = aes_key[z];
+							auth_response[i++] = ' ';
+							for (int u = 0; u < iv_vector.length; u++)
+								auth_response[i++] = iv_vector[u];
+							//System.out.println(new String(auth_response));
+							
+							cipher.init(Cipher.ENCRYPT_MODE, user_pubkey);
+							auth_response = Base64.encode(cipher.doFinal(auth_response));
+							
+							writer.println(new String(auth_response));
+							request = reader.readLine();
+							if (request != null){
+								encrypted_message = Base64.decode(request);
+								aes_decryption = Cipher.getInstance("AES/CTR/NoPadding");
+								aes_decryption.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+								decrypted_message = aes_decryption.doFinal(encrypted_message);
+								request = new String(decrypted_message);			
+								if (request.equals(new String(controller_challenge))){
+									user = userManager.getRegisteredUser(name);
+									userManager.activate(port, user);
+									aes_encryption = Cipher.getInstance("AES/CTR/NoPadding");
+									aes_encryption.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
+									auth_response = "!success".getBytes();
+									auth_response = Base64.encode(aes_encryption.doFinal(auth_response));
+									writer.println(new String(auth_response));
+								}
+							}
+						}else{
+							System.err.println("Error: There doesn't exist a key for this user!");
+						}
 					}
-					
-					writer.println(response);
-					
-					break;
 				}
+				
 
-				if(user == null){
+				/*if(user == null){
 					//client is not logged in
 					
 					if(parts.length == 3 && parts[0].equals("!login")){
@@ -97,10 +203,24 @@ public class TCPSocketProcessor implements Runnable{
 						response = "Error: First you have to login via \"!login <username> <password>\".";
 					}
 
-				}else{ 
+				}*/else if (aes_encryption != null && aes_decryption != null){
 					//user is logged in
-					
-					if(parts.length > 3 && parts[0].equals("!compute")){
+					request = new String(aes_decryption.doFinal(Base64.decode(request)));
+					String[] parts = request.split("\\s+");
+					if(parts.length == 1 && parts[0].equals("!exit")){
+						
+						userManager.deactivate(port);
+						
+						//if(user != null){
+						response = "Successfully logged out. Exiting client.";
+						//}else{
+						//response = "Exiting client.";
+						//}
+						
+						writer.println(new String(Base64.encode(aes_encryption.doFinal(response.getBytes()))));
+						
+						break;
+					}else if(parts.length > 3 && parts[0].equals("!compute")){
 
 						if(parts.length % 2 != 0){
 							response = "Error: Wrong input format for calculation.";
@@ -212,8 +332,8 @@ public class TCPSocketProcessor implements Runnable{
 							user.addCredits(-lostCredits);
 						}
 
-					}else if(parts.length == 3 && parts[0].equals("!login")){
-						response = "Error: You are already logged in!";
+					/*}else if(parts.length == 3 && parts[0].equals("!login")){
+						response = "Error: You are already logged in!";*/
 
 					}else if(parts.length == 2 && parts[0].equals("!buy")){
 						int additionalCredits = 0;
@@ -239,22 +359,41 @@ public class TCPSocketProcessor implements Runnable{
 
 						}else if(parts[0].equals("!logout")){
 							userManager.deactivate(port);
+							user = null;
 							response = "Successfully logged out.";
-
 						}else{
 							response = "Error: Please enter a valid command.";
 						}
 					}else{
 						response = "Error: Please enter a valid command.";
 					}
+				
+					//print response
+					writer.println(new String(Base64.encode(aes_encryption.doFinal(response.getBytes()))));
 				}
-
-				//print response
-				writer.println(response);
+				
 			}
 
 		}catch(IOException ex){
 			//Proceed with shutdown of Thread
+		} catch (NoSuchAlgorithmException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (NoSuchPaddingException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (InvalidKeyException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IllegalBlockSizeException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (BadPaddingException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (InvalidAlgorithmParameterException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}finally{
 			socketManager.close(socket);
 			

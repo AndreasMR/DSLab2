@@ -104,7 +104,7 @@ public class CloudController implements ICloudControllerCli, Runnable {
 			serverSocket = new ServerSocket(tcpPort);
 			
 			// handle incoming connections from client in a separate thread
-			new TCPListenerThread(serverSocket, userManager, nodeManager).start();
+			new TCPListenerThread(serverSocket, userManager, nodeManager, config).start();
 			
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot listen on TCP port.", e);

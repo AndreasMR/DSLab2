@@ -9,11 +9,11 @@ public class Base64Channel extends ChannelDecorator{
 	@Override
 	public String receiveMessageLine() {
 		String msg = super.receiveMessageLine();
-		return Base64.decode(msg).toString();
+		return new String(Base64.decode(msg));
 	}
 	
 	@Override
 	public void sendMessageLine(String msg) {
-		super.sendMessageLine(Base64.encode(msg.getBytes()).toString());
+		super.sendMessageLine(new String(Base64.encode(msg.getBytes())));
 	}
 }
