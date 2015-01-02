@@ -11,14 +11,10 @@ public class UdpChannel implements Channel {
 	private int udpport;
 	private DatagramSocket socket;
 	
-	public UdpChannel(String host, int udpport) {
+	public UdpChannel(String host, int udpport) throws SocketException {
 		this.host = host;
 		this.udpport = udpport;
-		try {
-			socket = new DatagramSocket(udpport);
-		} catch (SocketException e) {
-			e.printStackTrace();
-		}
+		socket = new DatagramSocket(udpport);
 	}
 	
 	public void close(){
@@ -27,34 +23,23 @@ public class UdpChannel implements Channel {
 	}
 	
 	@Override
-	public String receiveMessageLine() {
+	public String receiveMessageLine() throws IOException {
 		byte[] buffer = new byte[1024];
 		DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
-		try {
-			socket.receive(packet);
-			return packet.getData().toString();
-		} catch (IOException e) {
-			e.printStackTrace();
-			this.close();
-			return null;
-		}
+		socket.receive(packet);
+		return new String(packet.getData());
 	}
 
 	@Override
-	public void sendMessageLine(String msg) {
-		try {
-			DatagramSocket datagramSocket = new DatagramSocket();
-			
-			byte[] buffer = msg.getBytes();
-	
-			DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(host), udpport);
-			datagramSocket.send(packet);
+	public void sendMessageLine(String msg) throws IOException {
+		DatagramSocket datagramSocket = new DatagramSocket();
 		
-			datagramSocket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-			this.close();
-		}
+		byte[] buffer = msg.getBytes();
+
+		DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByName(host), udpport);
+		datagramSocket.send(packet);
+	
+		datagramSocket.close();
 	}
 }

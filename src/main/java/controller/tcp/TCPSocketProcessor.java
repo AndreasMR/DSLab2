@@ -26,6 +26,8 @@ import javax.crypto.spec.IvParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
+import cli.Base64Channel;
+import cli.TcpChannel;
 import util.Config;
 import util.Keys;
 import controller.node.NodeInfo;
@@ -35,6 +37,8 @@ import controller.user.UserManager;
 
 public class TCPSocketProcessor implements Runnable{
 	
+	private TcpChannel tcpChannel;
+	private Base64Channel base64Channel;
 	private Socket socket;
 	private TCPSocketManager socketManager;
 	private UserManager userManager;
@@ -43,8 +47,10 @@ public class TCPSocketProcessor implements Runnable{
 	private PrivateKey controller_key;
 	private PublicKey user_pubkey;
 
-	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager, Config config){
+	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager, Config config) throws IOException{
 		this.socket = socket;
+		tcpChannel = new TcpChannel(socket);
+		base64Channel = new Base64Channel(tcpChannel);
 		this.socketManager = socketManager;
 		this.userManager = userManager;
 		this.nodeManager = nodeManager;
@@ -69,30 +75,32 @@ public class TCPSocketProcessor implements Runnable{
 			int port = socket.getPort();
 
 			// prepare the input reader for the socket
-			BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			//--BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
 			// prepare the writer for responding to clients requests
-			PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+			//--PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 
 			
 			SecureRandom secureRandom = null;
-			String request;
+			String request = "";
+			byte[] message = null;
 			String response = "";
 			String name = "";
 			KeyGenerator generator;
-			final String B64 = "a-zA-Z0-9/+";
+			//final String B64 = "a-zA-Z0-9/+";
 			Cipher cipher = null;
 			Cipher aes_encryption = null;
 			Cipher aes_decryption = null;
 			
 			// read client requests
-			while ((request = reader.readLine()) != null) {
+			while ((message = base64Channel.receiveMessageLineInBytes()) != null) {
+			//--while ((request = reader.readLine()) != null) {
 
 				//get user by port, if null is returned, no user has been logged in via the client on the port
 				UserInfo user = userManager.getActiveUser(port);
 				
 				if (user == null){
-					byte[] encrypted_message = Base64.decode(request);
+					byte[] encrypted_message = message;
 					byte[] decrypted_message = null;
 					byte[] controller_challenge = null;
 					byte[] client_challenge = null;
@@ -146,15 +154,18 @@ public class TCPSocketProcessor implements Runnable{
 							auth_response[i++] = ' ';
 							for (int u = 0; u < iv_vector.length; u++)
 								auth_response[i++] = iv_vector[u];
-							//System.out.println(new String(auth_response));
 							
 							cipher.init(Cipher.ENCRYPT_MODE, user_pubkey);
-							auth_response = Base64.encode(cipher.doFinal(auth_response));
-							
-							writer.println(new String(auth_response));
-							request = reader.readLine();
-							if (request != null){
-								encrypted_message = Base64.decode(request);
+							//--auth_response = Base64.encode(cipher.doFinal(auth_response));
+							auth_response = cipher.doFinal(auth_response);
+							base64Channel.sendMessageLineInBytes(auth_response);
+							message = base64Channel.receiveMessageLineInBytes();
+							//--writer.println(new String(auth_response));
+							//--request = reader.readLine();
+							if (message != null){
+								encrypted_message = message;
+							//--if (request != null){
+								//--encrypted_message = Base64.decode(request);
 								aes_decryption = Cipher.getInstance("AES/CTR/NoPadding");
 								aes_decryption.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
 								decrypted_message = aes_decryption.doFinal(encrypted_message);
@@ -165,8 +176,10 @@ public class TCPSocketProcessor implements Runnable{
 									aes_encryption = Cipher.getInstance("AES/CTR/NoPadding");
 									aes_encryption.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
 									auth_response = "!success".getBytes();
-									auth_response = Base64.encode(aes_encryption.doFinal(auth_response));
-									writer.println(new String(auth_response));
+									auth_response = aes_encryption.doFinal(auth_response);
+									base64Channel.sendMessageLineInBytes(auth_response);
+									//--auth_response = Base64.encode(aes_encryption.doFinal(auth_response));
+									//--writer.println(new String(auth_response));
 								}
 							}
 						}else{
@@ -205,7 +218,8 @@ public class TCPSocketProcessor implements Runnable{
 
 				}*/else if (aes_encryption != null && aes_decryption != null){
 					//user is logged in
-					request = new String(aes_decryption.doFinal(Base64.decode(request)));
+					request = new String(aes_decryption.doFinal(message));
+					//--request = new String(aes_decryption.doFinal(Base64.decode(request)));
 					String[] parts = request.split("\\s+");
 					if(parts.length == 1 && parts[0].equals("!exit")){
 						
@@ -217,7 +231,8 @@ public class TCPSocketProcessor implements Runnable{
 						//response = "Exiting client.";
 						//}
 						
-						writer.println(new String(Base64.encode(aes_encryption.doFinal(response.getBytes()))));
+						base64Channel.sendMessageLineInBytes(aes_encryption.doFinal(response.getBytes()));
+						//--writer.println(new String(Base64.encode(aes_encryption.doFinal(response.getBytes()))));
 						
 						break;
 					}else if(parts.length > 3 && parts[0].equals("!compute")){
@@ -356,7 +371,9 @@ public class TCPSocketProcessor implements Runnable{
 									+ ((nodeManager.getNode('-') != null) ? "-" : "")
 									+ ((nodeManager.getNode('*') != null) ? "*" : "")
 									+ ((nodeManager.getNode('/') != null) ? "/" : "");
-
+							if (response.equals("")){
+								response = "There aren't any operators available at the moment!";
+							}
 						}else if(parts[0].equals("!logout")){
 							userManager.deactivate(port);
 							user = null;
@@ -369,7 +386,8 @@ public class TCPSocketProcessor implements Runnable{
 					}
 				
 					//print response
-					writer.println(new String(Base64.encode(aes_encryption.doFinal(response.getBytes()))));
+					base64Channel.sendMessageLineInBytes(aes_encryption.doFinal(response.getBytes()));
+					//--writer.println(new String(Base64.encode(aes_encryption.doFinal(response.getBytes()))));
 				}
 				
 			}

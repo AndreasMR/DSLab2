@@ -11,41 +11,26 @@ public class TcpChannel implements Channel {
 	private PrintWriter writer = null;
 	private Socket socket = null;
 	
-	public TcpChannel(Socket socket) {
+	public TcpChannel(Socket socket) throws IOException {
 		this.socket = socket;
-		try {
-			this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			this.writer = new PrintWriter(socket.getOutputStream(), true);
-		} catch (IOException e) {
-			System.err.println("Fehler beim Aufbauen des Input- und Outputstreams");
-		}
+		this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+		this.writer = new PrintWriter(socket.getOutputStream(), true);
 	}
 	
-	public String receiveMessageLine() {
-		try {
-			return reader.readLine();
-		} catch (IOException e) {
-			System.err.println("Fehler beim Warten auf eine Nachricht");
-			return null;
-		} 
+	public String receiveMessageLine() throws IOException {
+		return reader.readLine(); 
 	}
 	
 	public void sendMessageLine(String msg) {
 		writer.println(msg);
 	}
 	
-	public String exit(){
-		try {
-			if(socket != null && !socket.isClosed()){
-				socket.close();
-				socket = null;
-			}
-			return null;
-		}catch (IOException e){
-			System.err.println("Fehler beim Schließen des Sockets");
-			return null;
+	public String exit() throws IOException{
+		if(socket != null && !socket.isClosed()){
+			socket.close();
+			socket = null;
 		}
-	
+		return null;
 	}
 	
 	

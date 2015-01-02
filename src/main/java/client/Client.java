@@ -19,6 +19,9 @@ import java.security.Security;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
+import cli.Base64Channel;
+import cli.TcpChannel;
+
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -36,7 +39,9 @@ public class Client implements IClientCli, Runnable {
 	private Config config;
 	private InputStream userRequestStream;
 	private PrintStream userResponseStream;
-	
+
+	private TcpChannel tcpChannel;
+	private Base64Channel base64Channel;
 	private Socket socket;
 	
 	private String cHost;
@@ -63,7 +68,6 @@ public class Client implements IClientCli, Runnable {
 
 		this.cHost = config.getString("controller.host");
 		this.cTCPPort = config.getInt("controller.tcp.port");
-		//SecurityUtils.registerBouncyCastle();
 		Security.addProvider(new BouncyCastleProvider());
 		try {
 			this.controller_pubkey = Keys.readPublicPEM(new File(config.getString("controller.key")));
@@ -85,12 +89,11 @@ public class Client implements IClientCli, Runnable {
 		while(!exit){
 			
 			if(connectToController()){
-				// TODO: TcpChannel, Base64Channel hier einfügen
 				
-				BufferedReader serverReader = null;
-				PrintWriter serverWriter = null;
+				//--BufferedReader serverReader = null;
+				//--PrintWriter serverWriter = null;
 				boolean authenticated = false;
-				final String B64 = "a-zA-Z0-9/+";
+				//final String B64 = "a-zA-Z0-9/+";
 				Cipher cipher = null;
 				Cipher aes_encryption = null;
 				Cipher aes_decryption = null;
@@ -99,10 +102,10 @@ public class Client implements IClientCli, Runnable {
 				
 				try {
 					// create a reader to retrieve messages send by the server
-					serverReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+					//--serverReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
 					// create a writer to send messages to the server
-					serverWriter = new PrintWriter(socket.getOutputStream(), true);
+					//--serverWriter = new PrintWriter(socket.getOutputStream(), true);
 
 					userResponseStream.println("Successfully connected to Controller. Enter valid commands.");
 					
@@ -155,14 +158,19 @@ public class Client implements IClientCli, Runnable {
 										cipher = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");
 										cipher.init(Cipher.ENCRYPT_MODE, controller_pubkey);
 										cipherText = cipher.doFinal(message);
-										cipherText = Base64.encode(cipherText);
-										request = new String(cipherText);
-										serverWriter.println(request);
-										response = serverReader.readLine();
-										if (response != null){
-											message = null;
+										message = null;
+										base64Channel.sendMessageLineInBytes(cipherText);
+										message = base64Channel.receiveMessageLineInBytes();
+										//--cipherText = Base64.encode(cipherText);
+										//--request = new String(cipherText);
+										//--tcpChannel.sendMessageLine(request);
+										//--response = tcpChannel.receiveMessageLine();
+										//--serverWriter.println(request);
+										//--response = serverReader.readLine();
+										if (message != null){
+											//--message = null;
 											cipher.init(Cipher.DECRYPT_MODE, user_key);
-											message = cipher.doFinal(Base64.decode(response));
+											message = cipher.doFinal(/*Base64.decode(*/message/*)*/);
 											response = new String(message);
 											parts = response.split("\\s+");
 											//System.out.println(response);
@@ -172,14 +180,19 @@ public class Client implements IClientCli, Runnable {
 												SecretKey key = new SecretKeySpec(secret_key, 0, secret_key.length, "AES");
 												aes_encryption.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(Base64.decode(parts[4])));
 												cipherText = aes_encryption.doFinal(parts[2].getBytes());
-												cipherText = Base64.encode(cipherText);
-												request = new String(cipherText);
-												serverWriter.println(request);
-												response = serverReader.readLine();
-												if (response != null){
+												message = null;
+												base64Channel.sendMessageLineInBytes(cipherText);
+												message = base64Channel.receiveMessageLineInBytes();
+												//--cipherText = Base64.encode(cipherText);
+												//--request = new String(cipherText);
+												//--tcpChannel.sendMessageLine(request);
+												//--response = tcpChannel.receiveMessageLine();
+												//--serverWriter.println(request);
+												//--response = serverReader.readLine();
+												if (message != null){
 													aes_decryption = Cipher.getInstance("AES/CTR/NoPadding");
 													aes_decryption.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(Base64.decode(parts[4])));
-													response = new String(aes_decryption.doFinal(Base64.decode(response)));
+													response = new String(aes_decryption.doFinal(message));
 													if (response.equals("!success")){
 														authenticated = true;
 														userResponseStream.println("Authentication was successful!");
@@ -193,18 +206,23 @@ public class Client implements IClientCli, Runnable {
 								}else{
 									userResponseStream.println("usage: !authenticate <name>");
 								}
-							}else{								
+							}else{
+								message = null;
+								base64Channel.sendMessageLineInBytes(aes_encryption.doFinal(request.getBytes()));
+								message = base64Channel.receiveMessageLineInBytes();
+								//--tcpChannel.sendMessageLine(new String(Base64.encode(aes_encryption.doFinal(request.getBytes()))));
+								//--response = tcpChannel.receiveMessageLine();
 								// write provided user input to the socket
-								serverWriter.println(new String(Base64.encode(aes_encryption.doFinal(request.getBytes()))));
+								//--serverWriter.println(new String(Base64.encode(aes_encryption.doFinal(request.getBytes()))));
 								//System.out.println(new String(aes_decryption.doFinal(Base64.decode(new String(Base64.encode(aes_encryption.doFinal(request.getBytes())))))));
 								// read server response and write it to console
-								response = serverReader.readLine();
+								//--response = serverReader.readLine();
 								
-								if(response == null){
+								if(message == null){
 									throw new IOException("Connection to controller lost");
 								}
-								
-								userResponseStream.println(new String(aes_decryption.doFinal(Base64.decode(response))));
+								userResponseStream.println(new String(aes_decryption.doFinal(message)));
+								//userResponseStream.println(new String(aes_decryption.doFinal(Base64.decode(response))));
 								if (request.equals("!logout")){
 									authenticated = false;
 								}
@@ -282,7 +300,8 @@ public class Client implements IClientCli, Runnable {
 		// create and start a new TCP ServerSocket
 		try {
 			socket = new Socket(cHost, cTCPPort);
-
+			tcpChannel = new TcpChannel(socket);
+			base64Channel = new Base64Channel(tcpChannel);
 		} catch (IOException e) {
 			return false;
 		}
