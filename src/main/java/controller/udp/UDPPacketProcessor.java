@@ -24,8 +24,6 @@ public class UDPPacketProcessor implements Runnable{
 		// get the data from the packet
 		String request = new String(packet.getData()).trim();
         if(request.equals("!hello")){
-            System.out.println("received hello message from node");
-
             String response = nodeManager.getRmax() + " ";
             NodeInfo[] nodes = nodeManager.getNodes();
             for(NodeInfo node : nodes){
@@ -37,14 +35,17 @@ public class UDPPacketProcessor implements Runnable{
 
             byte[] buf = response.getBytes();
             DatagramPacket responsePacket = new DatagramPacket(buf, buf.length, packet.getAddress(), packet.getPort());
+            DatagramSocket socket = null;
             try {
-                DatagramSocket socket = new DatagramSocket();
+                socket = new DatagramSocket();
                 socket.send(responsePacket);
-                socket.close();
-            } catch (SocketException e) {
-                e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+            finally{
+                if(socket != null){
+                    socket.close();
+                }
             }
         }
         String[] parts = request.split("\\s+");

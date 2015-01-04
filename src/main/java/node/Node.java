@@ -70,30 +70,34 @@ public class Node implements INodeCli, Runnable {
 	@Override
 	public void run() {
         String received = null;
+        DatagramSocket socket = null;
         try {
             //request resource info from controller
-            DatagramSocket socket = new DatagramSocket();
-            System.out.println("foo");
+            socket = new DatagramSocket();
             sendUDPMessageToController("!hello", socket);
-            System.out.println("foo2");
 
             //receive answer
             byte[] buf = new byte[256];
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
-            System.out.println("foo3");
-
             socket.receive(packet);
             received = new String(packet.getData(), 0, packet.getLength()).trim();
-            System.out.println("reply to hello: " + received); //TODO: delete debug
 
-        } catch (SocketException e) {
-            e.printStackTrace(); //TODO handle
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
+
         } catch (IOException e) {
-            e.printStackTrace();
+            userResponseStream.println("Error communicating with cloud controller. Shutting down.");
+            try {
+                exit();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
+        finally {
+            if(socket != null){
+                socket.close();
+            }
         }
 
+        //parse node data from controller
         String[] parts = received.split(" ");
         int rmax = Integer.parseInt(parts[0]);
         int nodeCount = (parts.length - 1) / 2;
@@ -129,6 +133,9 @@ public class Node implements INodeCli, Runnable {
             else{
                 share = resourcesPerNode;
             }
+        }
+        else{
+            share = rmax;
         }
 
         // create a new thread to check send isAlive packets
