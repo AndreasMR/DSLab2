@@ -140,7 +140,7 @@ public class Node implements INodeCli, Runnable {
 			serverSocket = new ServerSocket(tcpPort);
 
 			// handle incoming connections from client in a separate thread
-			new NodeTCPListenerThread(serverSocket, this).start();
+			new NodeTCPListenerThread(serverSocket, this, config).start();
 
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot listen on TCP port.", e);

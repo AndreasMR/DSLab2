@@ -9,6 +9,8 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -19,6 +21,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
@@ -46,6 +49,7 @@ public class TCPSocketProcessor implements Runnable{
 	private Config config;
 	private PrivateKey controller_key;
 	private PublicKey user_pubkey;
+	private Key secret_hmac_key;
 
 	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager, Config config) throws IOException{
 		this.socket = socket;
@@ -58,6 +62,7 @@ public class TCPSocketProcessor implements Runnable{
 		this.config = config;
 		try {
 			this.controller_key = Keys.readPrivatePEM(new File(config.getString("key")));
+			this.secret_hmac_key = Keys.readSecretKey(new File(config.getString("hmac.key")));
 		} catch (IOException e) {
 			this.controller_key = null;
 			e.printStackTrace();
@@ -80,7 +85,7 @@ public class TCPSocketProcessor implements Runnable{
 			// prepare the writer for responding to clients requests
 			//--PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 
-			
+			final String B64 = "a-zA-Z0-9/+";
 			SecureRandom secureRandom = null;
 			String request = "";
 			byte[] message = null;
@@ -256,7 +261,16 @@ public class TCPSocketProcessor implements Runnable{
 								char op = parts[i-1].charAt(0);
 								int no2 = Integer.parseInt(parts[i]);
 
+								Mac hMac = Mac.getInstance("HmacSHA256");
+								hMac.init(secret_hmac_key);
 								String result = null;
+								byte[] term  = null;
+								byte[] hmac_term = null;
+								byte[] computedHash = null;
+								byte[] receivedHash = null;
+								boolean validHash = false;
+								String[] term_parts = null;
+								String compute_term = null;
 								Socket nodeSocket = null;
 								NodeInfo node = null;
 								
@@ -275,8 +289,22 @@ public class TCPSocketProcessor implements Runnable{
 
 										// create a writer to send messages to the node
 										PrintWriter nodeWriter = new PrintWriter(nodeSocket.getOutputStream(), true);
-
-										nodeWriter.println("!calc " + no1 + " " + op + " " + no2);
+										term = ("!calc " + no1 + " " + op + " " + no2).getBytes();
+										
+										// term is the message to sign in bytes
+										hMac.update(term);
+										computedHash = Base64.encode(hMac.doFinal());
+										hmac_term = new byte[computedHash.length+term.length+1];
+										int q;
+										for (q = 0; q < computedHash.length; q++){
+											hmac_term[q] = computedHash[q];
+										}
+										hmac_term[q++] = ' ';
+										for (int g = 0; g < term.length; g++){
+											hmac_term[q++] = term[g];
+										}
+										//System.out.println((new String(hmac_term)).matches("["+B64+"]{43}= [\\s[^\\s]]+"));
+										nodeWriter.println(new String(hmac_term));
 										
 										try{
 											result = nodeReader.readLine();
@@ -318,7 +346,28 @@ public class TCPSocketProcessor implements Runnable{
 
 								lostCredits += 50;
 
-								if(result.equals("!div0")){
+								term_parts = result.split("\\s+");
+								receivedHash = Base64.decode(term_parts[0].getBytes());;
+								//Line below tests, what happends, if the received hash is tampered!
+								//receivedHash[2] = 'B';
+								compute_term = result.substring(term_parts[0].length()+1, result.length());
+								result = compute_term;
+								// MESSAGE is the message to sign in bytes
+								hMac.update(compute_term.getBytes());
+								computedHash = hMac.doFinal();
+								validHash = MessageDigest.isEqual(computedHash, receivedHash);
+								
+								if (!validHash){
+									System.err.println("The message from the node is tampered! Computation was not successful!");
+									response = "The message from the node is tampered! Computation was not successful!";
+									lostCredits = 0;
+									break;
+								}else if (result.startsWith("!tampered")){
+									System.err.println("The term, that was sent to the node, was tampered, so there was no computation!");
+									response = "The term, that was sent to the node, was tampered, so there was no computation!";
+									lostCredits = 0;
+									break;
+								}else if(result.equals("!div0")){
 									//Subtract credits for all operations including this one
 									//Do not add usage to the node
 									response = "Error: Division by 0.";

@@ -6,6 +6,7 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import util.Config;
 import controller.tcp.TCPSocketManager;
 
 public class NodeTCPListenerThread extends Thread {
@@ -13,10 +14,12 @@ public class NodeTCPListenerThread extends Thread {
 	private ServerSocket serverSocket;
 	private ExecutorService threadPool = Executors.newCachedThreadPool();
     private Node node;
+    private Config config;
 	
-	public NodeTCPListenerThread(ServerSocket serverSocket, Node node) {
+	public NodeTCPListenerThread(ServerSocket serverSocket, Node node, Config config) {
 		this.serverSocket = serverSocket;
         this.node = node;
+        this.config = config;
 	}
 
 	public void run() {
@@ -33,7 +36,7 @@ public class NodeTCPListenerThread extends Thread {
 				socketManager.add(socket);
 
 				//Process Socket in separate Thread
-				threadPool.execute(new NodeTCPSocketProcessor(socket, socketManager, node));
+				threadPool.execute(new NodeTCPSocketProcessor(socket, socketManager, node, config));
 
 			}
 			
