@@ -17,8 +17,8 @@ public class NodeCommitter {
     private int nodesLeftToMessage;
     private int share;
     private boolean ok = true; //true if there are no nodes which have indicated that they need more than [share] resources
-    private final Object messengerWaitLock = new Object();
-    private final Object committerWaitLock = new Object();
+    private final Object messengerWaitLock = new Object(); //lock object for the NodeMessenger objects to wait for other NodeMessengers between the first and second stage of the protocol
+    private final Object committerWaitLock = new Object(); //lock object for the node committer to wait while the NodeMessenger objects communicate with the other nodes
     private ExecutorService threadPool = Executors.newCachedThreadPool();
 
     public NodeCommitter(String[] IPs, int[] ports, int share){
@@ -91,6 +91,7 @@ public class NodeCommitter {
                             messengerWaitLock.wait();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
+                            return;
                         }
                     }
                 }
@@ -102,7 +103,7 @@ public class NodeCommitter {
                 }
 
             } catch (IOException e) {
-                e.printStackTrace(); //TODO: handle unreachable nodes etc
+                e.printStackTrace();
             }
             finally{
                 if(socket != null){

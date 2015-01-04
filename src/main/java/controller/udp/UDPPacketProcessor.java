@@ -37,14 +37,17 @@ public class UDPPacketProcessor implements Runnable{
 
             byte[] buf = response.getBytes();
             DatagramPacket responsePacket = new DatagramPacket(buf, buf.length, packet.getAddress(), packet.getPort());
+            DatagramSocket socket = null;
             try {
-                DatagramSocket socket = new DatagramSocket();
+                socket = new DatagramSocket();
                 socket.send(responsePacket);
-                socket.close();
-            } catch (SocketException e) {
-                e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+            finally{
+                if(socket != null){
+                    socket.close();
+                }
             }
         }
         String[] parts = request.split("\\s+");

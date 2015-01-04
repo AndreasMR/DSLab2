@@ -82,8 +82,6 @@ public class NodeTCPSocketProcessor implements Runnable{
 				}
                 else if(parts.length == 2 && parts[0].equals("!share")){
                     int newShare = Integer.parseInt(parts[1]);
-                    System.out.println(newShare);
-                    System.out.println(node.getRmin());
                     if(newShare >= node.getRmin()){
                         writer.println("!ok");
                     }
@@ -95,9 +93,10 @@ public class NodeTCPSocketProcessor implements Runnable{
                     if(phase2.equals("!commit")){
                         node.setShare(newShare);
                     }
-                    else if(phase2.equals("!rollback")){
-                        //do something?
-                    }
+                    //else if(phase2.equals("!rollback")){
+                        //no action required
+                    //}
+
                     break; //no response required
                 }
                 else if(parts.length == 1 && parts[0].equals("!getLogs")){
