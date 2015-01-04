@@ -24,8 +24,6 @@ public class UDPPacketProcessor implements Runnable{
 		// get the data from the packet
 		String request = new String(packet.getData()).trim();
         if(request.equals("!hello")){
-            System.out.println("received hello message from node");
-
             String response = nodeManager.getRmax() + " ";
             NodeInfo[] nodes = nodeManager.getNodes();
             for(NodeInfo node : nodes){
