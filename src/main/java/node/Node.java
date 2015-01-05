@@ -120,7 +120,7 @@ public class Node implements INodeCli, Runnable {
                 ports[i] = Integer.parseInt(parts[i * 2 + 2]);
                 i++;
             }
-            boolean canComeOnline = new NodeCommitter(IPs, ports, resourcesPerNode).tryCommit();
+            boolean canComeOnline = new NodeCommitter(IPs, ports, resourcesPerNode, config).tryCommit();
             if (!canComeOnline) {
                 userResponseStream.println("insufficient controller resources for node. Shutting down.");
                 try {

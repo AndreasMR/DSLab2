@@ -1,12 +1,18 @@
 package node;
 
-import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.Socket;
+import java.security.Key;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import util.Config;
+import util.Keys;
+import cli.Base64Channel;
+import cli.Channel;
+import cli.HmacChannel;
+import cli.TcpChannel;
 
 /**
  * Created by Fabian on 20.12.2014.
@@ -20,12 +26,19 @@ public class NodeCommitter {
     private final Object messengerWaitLock = new Object(); //lock object for the NodeMessenger objects to wait for other NodeMessengers between the first and second stage of the protocol
     private final Object committerWaitLock = new Object(); //lock object for the node committer to wait while the NodeMessenger objects communicate with the other nodes
     private ExecutorService threadPool = Executors.newCachedThreadPool();
+    private Key secret_key;
 
-    public NodeCommitter(String[] IPs, int[] ports, int share){
+    public NodeCommitter(String[] IPs, int[] ports, int share, Config config){
         this.IPs = IPs;
         this.ports = ports;
         this.nodesLeftToMessage = IPs.length;
         this.share = share;
+        try {
+			this.secret_key = Keys.readSecretKey(new File(config.getString("hmac.key")));
+		} catch (IOException e) {
+			this.secret_key = null;
+			e.printStackTrace();
+		}
     }
 
     public boolean tryCommit(){
@@ -69,10 +82,14 @@ public class NodeCommitter {
             Socket socket = null;
             try {
                 socket = new Socket(IP, port);
-                PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                writer.println("!share " + NodeCommitter.this.share);
-                String response = reader.readLine();
+//                PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+//                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                
+                Channel channel = new HmacChannel(new Base64Channel(new TcpChannel(socket)), NodeCommitter.this.secret_key);
+                channel.sendMessageLine("!share " + NodeCommitter.this.share);
+                String response = channel.receiveMessageLine();
+//                writer.println("!share " + NodeCommitter.this.share);
+//                String response = reader.readLine();
                 if(response.equals("!nok")){
                     ok = false;
                 }
@@ -96,10 +113,12 @@ public class NodeCommitter {
                     }
                 }
                 if(ok){
-                    writer.println("!commit");
+                	channel.sendMessageLine("!commit");
+//                    writer.println("!commit");
                 }
                 else{
-                    writer.println("!rollback");
+                	channel.sendMessageLine("!rollback");
+//                    writer.println("!rollback");
                 }
 
             } catch (IOException e) {

@@ -1,16 +1,12 @@
 package controller.tcp;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -21,7 +17,6 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
-import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
@@ -29,10 +24,12 @@ import javax.crypto.spec.IvParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Base64;
 
-import cli.Base64Channel;
-import cli.TcpChannel;
 import util.Config;
 import util.Keys;
+import cli.Base64Channel;
+import cli.HmacChannel;
+import cli.TamperedException;
+import cli.TcpChannel;
 import controller.node.NodeInfo;
 import controller.node.NodeManager;
 import controller.user.UserInfo;
@@ -62,9 +59,14 @@ public class TCPSocketProcessor implements Runnable{
 		this.config = config;
 		try {
 			this.controller_key = Keys.readPrivatePEM(new File(config.getString("key")));
-			this.secret_hmac_key = Keys.readSecretKey(new File(config.getString("hmac.key")));
 		} catch (IOException e) {
 			this.controller_key = null;
+			e.printStackTrace();
+		}
+		try {
+			this.secret_hmac_key = Keys.readSecretKey(new File(config.getString("hmac.key")));
+		} catch (IOException e) {
+			this.secret_hmac_key = null;
 			e.printStackTrace();
 		}
 	}
@@ -261,18 +263,16 @@ public class TCPSocketProcessor implements Runnable{
 								char op = parts[i-1].charAt(0);
 								int no2 = Integer.parseInt(parts[i]);
 
-								Mac hMac = Mac.getInstance("HmacSHA256");
-								hMac.init(secret_hmac_key);
 								String result = null;
-								byte[] term  = null;
-								byte[] hmac_term = null;
-								byte[] computedHash = null;
-								byte[] receivedHash = null;
-								boolean validHash = false;
-								String[] term_parts = null;
-								String compute_term = null;
+//								byte[] term  = null;
+//								byte[] hmac_term = null;
+//								byte[] computedHash = null;
+//								byte[] receivedHash = null;
+//								String[] term_parts = null;
+//								String compute_term = null;
 								Socket nodeSocket = null;
 								NodeInfo node = null;
+								boolean tampered = false;
 								
 								while((node = nodeManager.getNode(op)) != null){
 									
@@ -283,39 +283,29 @@ public class TCPSocketProcessor implements Runnable{
 											nodeSocket = new Socket(node.getHostname(), node.getPort());
 //											nodeSockets.put(node, nodeSocket);
 //										}
+											
+										TcpChannel nodeTcpChannel = new TcpChannel(nodeSocket);
+										Base64Channel nodeBase64Channel = new Base64Channel(nodeTcpChannel);
+										HmacChannel nodeHmacChannel = new HmacChannel(nodeBase64Channel, this.secret_hmac_key);
 										
-										// create a reader to retrieve messages send by the node
-										BufferedReader nodeReader = new BufferedReader(new InputStreamReader(nodeSocket.getInputStream()));
-
-										// create a writer to send messages to the node
-										PrintWriter nodeWriter = new PrintWriter(nodeSocket.getOutputStream(), true);
-										term = ("!calc " + no1 + " " + op + " " + no2).getBytes();
-										
-										// term is the message to sign in bytes
-										hMac.update(term);
-										computedHash = Base64.encode(hMac.doFinal());
-										hmac_term = new byte[computedHash.length+term.length+1];
-										int q;
-										for (q = 0; q < computedHash.length; q++){
-											hmac_term[q] = computedHash[q];
-										}
-										hmac_term[q++] = ' ';
-										for (int g = 0; g < term.length; g++){
-											hmac_term[q++] = term[g];
-										}
-										//System.out.println((new String(hmac_term)).matches("["+B64+"]{43}= [\\s[^\\s]]+"));
-										nodeWriter.println(new String(hmac_term));
+										nodeHmacChannel.sendMessageLine("!calc " + no1 + " " + op + " " + no2);
 										
 										try{
-											result = nodeReader.readLine();
+											result = nodeHmacChannel.receiveMessageLine();
+//											result = nodeReader.readLine();
 											if(result == null)
 												throw new SocketException("Result from Socket is null");
+											
 										}catch(SocketException ex){
 											//Socket is not connected anymore (node was closed, but could be open again)
 											//try to create a new socket
 //											nodeSockets.remove(node);
 											//try same node again
 											continue;
+											
+										}catch(TamperedException ex){
+											tampered = true;
+											
 										} finally {
 											if(nodeSocket != null && !nodeSocket.isClosed()){
 												nodeSocket.close();
@@ -346,24 +336,13 @@ public class TCPSocketProcessor implements Runnable{
 
 								lostCredits += 50;
 
-								term_parts = result.split("\\s+");
-								receivedHash = Base64.decode(term_parts[0].getBytes());;
-								//Line below tests, what happends, if the received hash is tampered!
-								//receivedHash[2] = 'B';
-								compute_term = result.substring(term_parts[0].length()+1, result.length());
-								result = compute_term;
-								// MESSAGE is the message to sign in bytes
-								hMac.update(compute_term.getBytes());
-								computedHash = hMac.doFinal();
-								validHash = MessageDigest.isEqual(computedHash, receivedHash);
-								
-								if (!validHash){
-									System.err.println("The message from the node is tampered! Computation was not successful!");
+								if (tampered){
+//									System.err.println("The message from the node is tampered! Computation was not successful!");
 									response = "The message from the node is tampered! Computation was not successful!";
 									lostCredits = 0;
 									break;
 								}else if (result.startsWith("!tampered")){
-									System.err.println("The term, that was sent to the node, was tampered, so there was no computation!");
+//									System.err.println("The term, that was sent to the node, was tampered, so there was no computation!");
 									response = "The term, that was sent to the node, was tampered, so there was no computation!";
 									lostCredits = 0;
 									break;
@@ -443,19 +422,19 @@ public class TCPSocketProcessor implements Runnable{
 
 		}catch(IOException ex){
 			//Proceed with shutdown of Thread
-		} catch (NoSuchAlgorithmException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
 		} catch (NoSuchPaddingException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		} catch (InvalidKeyException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (IllegalBlockSizeException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (BadPaddingException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (InvalidKeyException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (NoSuchAlgorithmException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (InvalidAlgorithmParameterException e) {

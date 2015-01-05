@@ -1,12 +1,13 @@
 package controller.rmi;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.PrintWriter;
 import java.io.Serializable;
 import java.net.Socket;
 import java.net.SocketException;
 import java.rmi.RemoteException;
+import java.security.Key;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -17,7 +18,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import model.ComputationRequestInfo;
+import util.Config;
+import util.Keys;
 import admin.INotificationCallback;
+import cli.Base64Channel;
+import cli.Channel;
+import cli.HmacChannel;
+import cli.TcpChannel;
 import controller.IAdminConsole;
 import controller.node.NodeInfo;
 import controller.node.NodeManager;
@@ -29,10 +36,18 @@ public class AdminService implements IAdminConsole, Serializable{
 	private static final long serialVersionUID = 3929133918781894335L;
 	private UserManager userManager;
 	private NodeManager nodeManager;
+	private Key secret_hmac_key;
 	
 	public AdminService(UserManager userManager, NodeManager nodeManager){
 		this.userManager = userManager;
 		this.nodeManager = nodeManager;
+		Config config = new Config("controller");
+		try {
+			this.secret_hmac_key = Keys.readSecretKey(new File(config.getString("hmac.key")));
+		} catch (IOException e) {
+			this.secret_hmac_key = null;
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
@@ -62,14 +77,15 @@ public class AdminService implements IAdminConsole, Serializable{
 				try{
 					nodeSocket = new Socket(n.getHostname(), n.getPort());
 					
+					Channel channel = new HmacChannel(new Base64Channel(new TcpChannel(nodeSocket)), this.secret_hmac_key);
+					
 					// create a writer to send messages to the node
-					PrintWriter nodeWriter = new PrintWriter(nodeSocket.getOutputStream(), true);
-
-					nodeWriter.println("!getLogs");
+//					PrintWriter nodeWriter = new PrintWriter(nodeSocket.getOutputStream(), true);
+//					nodeWriter.println("!getLogs");
+					channel.sendMessageLine("!getLogs");
 					
 					// create a reader to retrieve messages send by the node
 					ObjectInputStream nodeReader = new ObjectInputStream(nodeSocket.getInputStream());
-										
 					List<ComputationRequestInfo> result = (List<ComputationRequestInfo>)nodeReader.readObject();
 					
 					if(result == null)
