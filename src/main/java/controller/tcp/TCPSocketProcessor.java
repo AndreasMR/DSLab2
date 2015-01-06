@@ -78,14 +78,9 @@ public class TCPSocketProcessor implements Runnable{
 //		Map<NodeInfo, Socket> nodeSockets = new HashMap<NodeInfo, Socket>();
 		
 		try{
-			// TODO: TcpChannel, Base64Channel hier einfuegen
+
 			int port = socket.getPort();
 
-			// prepare the input reader for the socket
-			//--BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-			// prepare the writer for responding to clients requests
-			//--PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
 
 			final String B64 = "a-zA-Z0-9/+";
 			SecureRandom secureRandom = null;
@@ -114,17 +109,20 @@ public class TCPSocketProcessor implements Runnable{
 					byte[] iv_vector = null;
 					byte[] aes_key = null;
 					byte[] auth_response = null;
-					//String message = null;
+					
+					// init the cipher
 					cipher = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");
 					cipher.init(Cipher.DECRYPT_MODE, controller_key);
+					
+					// decrypt the message with doFinal
 					decrypted_message = cipher.doFinal(encrypted_message);
 					request = new String(decrypted_message);
-					//System.out.println(request);
 					
 					String[] parts = request.split("\\s+");
 					
 					if(parts.length == 3 && parts[0].equals("!authenticate")){
 						try {
+							// There have to exist a public key file for the user, so we can encrypt the message, that is sent
 							this.user_pubkey = Keys.readPublicPEM(new File(config.getString("keys.dir")+"/"+parts[1]+".pub.pem"));
 						} catch (Exception e) {
 							this.user_pubkey = null;
@@ -135,16 +133,24 @@ public class TCPSocketProcessor implements Runnable{
 							secureRandom = new SecureRandom();
 							final byte[] challenge = new byte[32];
 							final byte[] iv = new byte[16];
+							
+							// get random byte arrays
 							secureRandom.nextBytes(challenge);
 							secureRandom.nextBytes(iv);
+							
+							// challenge of the controller
 							controller_challenge = Base64.encode(challenge);
+							// challenge of the client
 							client_challenge = parts[2].getBytes();
 							iv_vector = Base64.encode(iv);
 							generator = KeyGenerator.getInstance("AES");
 							// KEYSIZE is in bits
 							generator.init(256);
+							// generate the aes secret key
 							SecretKey key = generator.generateKey(); 
 							aes_key = Base64.encode(key.getEncoded());
+							
+							// putting everything into one message in bytes
 							response = "!ok ";
 							auth_response = new byte[response.length()+client_challenge.length+controller_challenge.length+aes_key.length+iv_vector.length+3];
 							int i;
@@ -162,21 +168,22 @@ public class TCPSocketProcessor implements Runnable{
 							for (int u = 0; u < iv_vector.length; u++)
 								auth_response[i++] = iv_vector[u];
 							
+							// encrypt the message 
 							cipher.init(Cipher.ENCRYPT_MODE, user_pubkey);
-							//--auth_response = Base64.encode(cipher.doFinal(auth_response));
 							auth_response = cipher.doFinal(auth_response);
+							
+							// send the message and waiting for an answer 
 							base64Channel.sendMessageLineInBytes(auth_response);
 							message = base64Channel.receiveMessageLineInBytes();
-							//--writer.println(new String(auth_response));
-							//--request = reader.readLine();
+							
 							if (message != null){
+								// answer is aes encrypted
 								encrypted_message = message;
-							//--if (request != null){
-								//--encrypted_message = Base64.decode(request);
 								aes_decryption = Cipher.getInstance("AES/CTR/NoPadding");
 								aes_decryption.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
 								decrypted_message = aes_decryption.doFinal(encrypted_message);
-								request = new String(decrypted_message);			
+								request = new String(decrypted_message);
+								// if the challenge that was send is equal, then it is valid
 								if (request.equals(new String(controller_challenge))){
 									user = userManager.getRegisteredUser(name);
 									userManager.activate(port, user);
@@ -185,45 +192,13 @@ public class TCPSocketProcessor implements Runnable{
 									auth_response = "!success".getBytes();
 									auth_response = aes_encryption.doFinal(auth_response);
 									base64Channel.sendMessageLineInBytes(auth_response);
-									//--auth_response = Base64.encode(aes_encryption.doFinal(auth_response));
-									//--writer.println(new String(auth_response));
 								}
 							}
 						}else{
 							System.err.println("Error: There doesn't exist a key for this user!");
 						}
 					}
-				}
-				
-
-				/*if(user == null){
-					//client is not logged in
-					
-					if(parts.length == 3 && parts[0].equals("!login")){
-
-						String name = parts[1];
-						String password = parts[2];
-						user = userManager.getRegisteredUser(name);
-
-						if(user != null && user.checkPassword(password)){
-							//Allow same user to log in via multiple clients at a time
-							//Remove comments for this part if a user should only be able to use one client at a time
-//							if(userManager.isActiveUser(user)){
-//								response = "Error: The User is already logged in!";
-//							}else{
-								//Login
-								userManager.activate(port, user);
-								response = "Successfully logged in.";
-//							}
-						}else{
-							response = "Error: Wrong username or password.";
-						}
-
-					}else{
-						response = "Error: First you have to login via \"!login <username> <password>\".";
-					}
-
-				}*/else if (aes_encryption != null && aes_decryption != null){
+				}else{
 					//user is logged in
 					request = new String(aes_decryption.doFinal(message));
 					//--request = new String(aes_decryption.doFinal(Base64.decode(request)));

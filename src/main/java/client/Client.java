@@ -90,8 +90,6 @@ public class Client implements IClientCli, Runnable {
 			
 			if(connectToController()){
 				
-				//--BufferedReader serverReader = null;
-				//--PrintWriter serverWriter = null;
 				boolean authenticated = false;
 				//final String B64 = "a-zA-Z0-9/+";
 				Cipher cipher = null;
@@ -101,11 +99,6 @@ public class Client implements IClientCli, Runnable {
 				SecureRandom secureRandom;
 				
 				try {
-					// create a reader to retrieve messages send by the server
-					//--serverReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-					// create a writer to send messages to the server
-					//--serverWriter = new PrintWriter(socket.getOutputStream(), true);
 
 					userResponseStream.println("Successfully connected to Controller. Enter valid commands.");
 					
@@ -134,17 +127,24 @@ public class Client implements IClientCli, Runnable {
 								}
 								if (parts.length == 2 && parts[0].equals("!authenticate")){
 									try {
+										// trying to get the private key for the user
+										// if there is no private key, error
 										this.user_key = Keys.readPrivatePEM(new File(config.getString("keys.dir")+"/"+parts[1]+".pem"));
 									} catch (IOException e) {
 										this.user_key = null;
 										userResponseStream.println("Error: There doesn't exist a private key for this user");
 									}
+									
 									if (user_key != null){
+										// if private key exists
 										secureRandom = new SecureRandom();
 										final byte[] number = new byte[32];
 										secureRandom.nextBytes(number);
+										// generate a client challenge
 										byte_challenge = Base64.encode(number);
 										byte_request = request.getBytes();
+										
+										// put the authenticate string and the challenge into one byte array
 										message = new byte[byte_challenge.length+byte_request.length+1];
 										int i;
 										for (i = 0; i < byte_request.length; i++){
@@ -154,41 +154,44 @@ public class Client implements IClientCli, Runnable {
 										for (int j = 0; j < byte_challenge.length; j++){
 											message[i++] = byte_challenge[j];
 										}
-										//System.out.println(new String(message));
+										
+										// encrypt the message in bytes
 										cipher = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");
 										cipher.init(Cipher.ENCRYPT_MODE, controller_pubkey);
 										cipherText = cipher.doFinal(message);
+										
 										message = null;
+										
+										// send the message and wait for an encrypted !ok message
 										base64Channel.sendMessageLineInBytes(cipherText);
 										message = base64Channel.receiveMessageLineInBytes();
-										//--cipherText = Base64.encode(cipherText);
-										//--request = new String(cipherText);
-										//--tcpChannel.sendMessageLine(request);
-										//--response = tcpChannel.receiveMessageLine();
-										//--serverWriter.println(request);
-										//--response = serverReader.readLine();
+										
 										if (message != null){
-											//--message = null;
+											
 											cipher.init(Cipher.DECRYPT_MODE, user_key);
-											message = cipher.doFinal(/*Base64.decode(*/message/*)*/);
+											message = cipher.doFinal(message);
 											response = new String(message);
 											parts = response.split("\\s+");
-											//System.out.println(response);
-											if (parts.length == 5 && new String(byte_challenge).equals(parts[1])){
+											
+											// if the answer is correct, having 5 parts, first one equals !ok and the send
+											// and the received challenge are equal then it comes to an AES encryption
+											if (parts.length == 5 && parts[0].equals("!ok") && new String(byte_challenge).equals(parts[1])){
 												aes_encryption = Cipher.getInstance("AES/CTR/NoPadding");
 												secret_key = Base64.decode(parts[3]);
+												
+												// the secret key for the AES encryption, sent by the controller
 												SecretKey key = new SecretKeySpec(secret_key, 0, secret_key.length, "AES");
 												aes_encryption.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(Base64.decode(parts[4])));
 												cipherText = aes_encryption.doFinal(parts[2].getBytes());
+												
 												message = null;
+												
+												// the controller challenge that was in the message before, is sent back in AES encryption
 												base64Channel.sendMessageLineInBytes(cipherText);
 												message = base64Channel.receiveMessageLineInBytes();
-												//--cipherText = Base64.encode(cipherText);
-												//--request = new String(cipherText);
-												//--tcpChannel.sendMessageLine(request);
-												//--response = tcpChannel.receiveMessageLine();
-												//--serverWriter.println(request);
-												//--response = serverReader.readLine();
+												
+												// if the client gets an encrypted "!success" message back
+												// the authentication is completed
 												if (message != null){
 													aes_decryption = Cipher.getInstance("AES/CTR/NoPadding");
 													aes_decryption.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(Base64.decode(parts[4])));
@@ -210,19 +213,13 @@ public class Client implements IClientCli, Runnable {
 								message = null;
 								base64Channel.sendMessageLineInBytes(aes_encryption.doFinal(request.getBytes()));
 								message = base64Channel.receiveMessageLineInBytes();
-								//--tcpChannel.sendMessageLine(new String(Base64.encode(aes_encryption.doFinal(request.getBytes()))));
-								//--response = tcpChannel.receiveMessageLine();
-								// write provided user input to the socket
-								//--serverWriter.println(new String(Base64.encode(aes_encryption.doFinal(request.getBytes()))));
-								//System.out.println(new String(aes_decryption.doFinal(Base64.decode(new String(Base64.encode(aes_encryption.doFinal(request.getBytes())))))));
-								// read server response and write it to console
-								//--response = serverReader.readLine();
+								
 								
 								if(message == null){
 									throw new IOException("Connection to controller lost");
 								}
 								userResponseStream.println(new String(aes_decryption.doFinal(message)));
-								//userResponseStream.println(new String(aes_decryption.doFinal(Base64.decode(response))));
+								
 								if (request.equals("!logout")){
 									authenticated = false;
 								}
