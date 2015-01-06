@@ -31,7 +31,6 @@ public class UDPPacketProcessor implements Runnable{
                     response += node.getIP() + " " + node.getPort() + " ";
                 }
             }
-            //response += ";";  //TODO: address problem with messages that don't fit package
 
             byte[] buf = response.getBytes();
             DatagramPacket responsePacket = new DatagramPacket(buf, buf.length, packet.getAddress(), packet.getPort());

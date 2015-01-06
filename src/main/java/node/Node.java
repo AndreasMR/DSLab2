@@ -77,7 +77,7 @@ public class Node implements INodeCli, Runnable {
             sendUDPMessageToController("!hello", socket);
 
             //receive answer
-            byte[] buf = new byte[256];
+            byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             socket.receive(packet);
             received = new String(packet.getData(), 0, packet.getLength()).trim();
