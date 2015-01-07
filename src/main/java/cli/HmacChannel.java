@@ -21,10 +21,8 @@ public class HmacChannel extends ChannelDecorator{
 			hMac.init(secret_hmac_key);
 
 		} catch (NoSuchAlgorithmException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}  catch (InvalidKeyException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 

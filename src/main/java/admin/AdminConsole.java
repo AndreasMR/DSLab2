@@ -36,7 +36,7 @@ public class AdminConsole implements IAdminConsole, Runnable {
 	private String rmiBindingName;
 	private int rmiPort;
 	private String cHost;
-	private String keysDir;
+//	private String keysDir;
 	
 	private Set<INotificationCallback> subscriptions = new HashSet<INotificationCallback>();
 
@@ -60,7 +60,7 @@ public class AdminConsole implements IAdminConsole, Runnable {
 		rmiBindingName = config.getString("binding.name");
 		rmiPort = config.getInt("controller.rmi.port");
 		cHost = config.getString("controller.host");
-		keysDir = config.getString("keys.dir");
+//		keysDir = config.getString("keys.dir");
 		
 	}
 
@@ -253,32 +253,30 @@ public class AdminConsole implements IAdminConsole, Runnable {
 
 	@Override
 	public boolean subscribe(String username, int credits, INotificationCallback callback) throws RemoteException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return false;
 	}
 
 	@Override
 	public List<ComputationRequestInfo> getLogs() throws RemoteException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 	@Override
 	public LinkedHashMap<Character, Long> statistics() throws RemoteException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 //	@Override
 //	public Key getControllerPublicKey() throws RemoteException {
-//		// TODO Auto-generated method stub
 //		return null;
 //	}
 //
 //	@Override
 //	public void setUserPublicKey(String username, byte[] key)
 //			throws RemoteException {
-//		// TODO Auto-generated method stub
 //	}
 
 	/**

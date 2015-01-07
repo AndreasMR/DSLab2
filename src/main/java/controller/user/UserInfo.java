@@ -77,8 +77,8 @@ public class UserInfo implements Serializable{
 					try {
 						c.notify(this.name, creditNotifications.get(c));
 					} catch (RemoteException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						// Can not execute remote notify, AdminConsole is probably down
+//						e.printStackTrace();
 					}
 					it.remove();
 				}

@@ -114,15 +114,15 @@ public class CloudController implements ICloudControllerCli, Runnable {
 		try {
 			reg = LocateRegistry.createRegistry(rmiPort);
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
 		adminService = new AdminService(userManager, nodeManager);
+		
 		try {
 			Remote adminServiceStub = UnicastRemoteObject.exportObject(adminService, 0);
 			reg.rebind(rmiBindingName, adminServiceStub);
 		} catch (RemoteException ex) {
-			// TODO Auto-generated catch block
 			ex.printStackTrace();
 		}
 

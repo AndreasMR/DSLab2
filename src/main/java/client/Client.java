@@ -214,7 +214,6 @@ public class Client implements IClientCli, Runnable {
 								base64Channel.sendMessageLineInBytes(aes_encryption.doFinal(request.getBytes()));
 								message = base64Channel.receiveMessageLineInBytes();
 								
-								
 								if(message == null){
 									throw new IOException("Connection to controller lost");
 								}
@@ -222,8 +221,7 @@ public class Client implements IClientCli, Runnable {
 								
 								if (request.equals("!logout")){
 									authenticated = false;
-								}
-								if(request.equals("!exit")){
+								} else if(request.equals("!exit")){
 									authenticated = false;
 									exit = true;
 									break;
@@ -236,22 +234,16 @@ public class Client implements IClientCli, Runnable {
 					// connection to controller lost, try to reconnect
 					continue;
 				} catch (NoSuchAlgorithmException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (NoSuchPaddingException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (InvalidKeyException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (IllegalBlockSizeException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (BadPaddingException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (InvalidAlgorithmParameterException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				
@@ -307,37 +299,37 @@ public class Client implements IClientCli, Runnable {
 
 	@Override
 	public String login(String username, String password) throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 	@Override
 	public String logout() throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 	@Override
 	public String credits() throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 	@Override
 	public String buy(long credits) throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 	@Override
 	public String list() throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
 	@Override
 	public String compute(String term) throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 
@@ -364,7 +356,7 @@ public class Client implements IClientCli, Runnable {
 
 	@Override
 	public String authenticate(String username) throws IOException {
-		// TODO Auto-generated method stub
+		// Implemented in run()
 		return null;
 	}
 

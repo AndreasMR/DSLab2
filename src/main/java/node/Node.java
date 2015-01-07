@@ -31,7 +31,6 @@ public class Node implements INodeCli, Runnable {
 
     private int rmin;
     private int share;
-    private int nodesLeftToMessage;
 	
 	private NodeAliveThread nodeAliveThread;
 	private ServerSocket serverSocket;
@@ -210,7 +209,6 @@ public class Node implements INodeCli, Runnable {
 
 	@Override
 	public String history(int numberOfRequests) throws IOException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
@@ -229,7 +227,7 @@ public class Node implements INodeCli, Runnable {
 
 	@Override
 	public String resources() throws IOException {
-		// TODO Auto-generated method stub
+		//Implemented in run()
 		return null;
 	}
 	

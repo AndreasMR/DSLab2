@@ -398,22 +398,16 @@ public class TCPSocketProcessor implements Runnable{
 		}catch(IOException ex){
 			//Proceed with shutdown of Thread
 		} catch (NoSuchPaddingException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (IllegalBlockSizeException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (BadPaddingException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (InvalidKeyException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (NoSuchAlgorithmException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} catch (InvalidAlgorithmParameterException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}finally{
 			socketManager.close(socket);
