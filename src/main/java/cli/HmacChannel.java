@@ -43,7 +43,7 @@ public class HmacChannel extends ChannelDecorator{
 			hMac.update(msg_term.getBytes());
 			byte[] computedHash = hMac.doFinal();
 			if(!MessageDigest.isEqual(computedHash, receivedHash)){
-				throw new TamperedException();
+				throw new TamperedException(msg_term);
 			}
 
 			return msg_term;

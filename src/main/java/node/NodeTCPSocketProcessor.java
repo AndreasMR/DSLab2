@@ -70,24 +70,22 @@ public class NodeTCPSocketProcessor implements Runnable{
 					break;
 				}catch(TamperedException ex){
 					tampered = true;
+					request = ex.getTamperedMsg();
+				}
+				
+				if(request == null){
+					//Connection lost, shutting down this thread
+					throw new IOException();
 				}
 				
 				String[] parts = request.split("\\s+");
-//				if (parts.length == 5){
-//					receivedHash = Base64.decode(parts[0].getBytes());
-//					//Line below tests, what happends, if the received hash is tampered!
-//					//receivedHash[4] = 'A';
-//					compute_term = parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4];
-//					// MESSAGE is the message to sign in bytes
-//					hMac.update(compute_term.getBytes());
-//					computedHash = hMac.doFinal();
-//					validHash = MessageDigest.isEqual(computedHash, receivedHash);
-//					parts = compute_term.split("\\s+");
-//				}
+				
 				if (tampered){
 //					System.err.println("The received message is tampered. The controller will be informed!");
-					response = "!tampered " + parts[1] + " " + parts[2] + " " + parts[3];
-				}else if(parts.length == 4 && parts[0].equals("!calc")){
+//					response = "!tampered " + parts[1] + " " + parts[2] + " " + parts[3];
+					response = "!tampered " + request;
+				}
+				else if(parts.length == 4 && parts[0].equals("!calc")){
 					//Format: "!calc " + no1 + " " + op + " " + no2
 					double no1 = Integer.parseInt(parts[1]);
 					char op = parts[2].charAt(0);
@@ -123,7 +121,7 @@ public class NodeTCPSocketProcessor implements Runnable{
 					NodeLogger.createLog(System.currentTimeMillis(), logContent);
 
 				}
-                else if(parts.length == 2 && parts[0].equals("!share")){
+				else if(parts.length == 2 && parts[0].equals("!share")){
                     int newShare = Integer.parseInt(parts[1]);
                     if(newShare >= node.getRmin()){
 //                        writer.println("!ok");

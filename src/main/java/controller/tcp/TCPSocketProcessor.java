@@ -2,6 +2,7 @@ package controller.tcp;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.security.InvalidAlgorithmParameterException;
@@ -47,8 +48,9 @@ public class TCPSocketProcessor implements Runnable{
 	private PrivateKey controller_key;
 	private PublicKey user_pubkey;
 	private Key secret_hmac_key;
+	private PrintStream serverStream;
 
-	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager, Config config) throws IOException{
+	public TCPSocketProcessor( Socket socket, TCPSocketManager socketManager, UserManager userManager, NodeManager nodeManager, Config config, PrintStream serverStream) throws IOException{
 		this.socket = socket;
 		tcpChannel = new TcpChannel(socket);
 		base64Channel = new Base64Channel(tcpChannel);
@@ -57,6 +59,7 @@ public class TCPSocketProcessor implements Runnable{
 		this.nodeManager = nodeManager;
 		Security.addProvider(new BouncyCastleProvider());
 		this.config = config;
+		this.serverStream = serverStream;
 		try {
 			this.controller_key = Keys.readPrivatePEM(new File(config.getString("key")));
 		} catch (IOException e) {
@@ -82,7 +85,7 @@ public class TCPSocketProcessor implements Runnable{
 			int port = socket.getPort();
 
 
-			final String B64 = "a-zA-Z0-9/+";
+//			final String B64 = "a-zA-Z0-9/+";
 			SecureRandom secureRandom = null;
 			String request = "";
 			byte[] message = null;
@@ -313,11 +316,13 @@ public class TCPSocketProcessor implements Runnable{
 
 								if (tampered){
 //									System.err.println("The message from the node is tampered! Computation was not successful!");
+									serverStream.println("The message from the node is tampered! Computation was not successful!");
 									response = "The message from the node is tampered! Computation was not successful!";
 									lostCredits = 0;
 									break;
 								}else if (result.startsWith("!tampered")){
 //									System.err.println("The term, that was sent to the node, was tampered, so there was no computation!");
+									serverStream.println("The term, that was sent to the node, was tampered, so there was no computation!");
 									response = "The term, that was sent to the node, was tampered, so there was no computation!";
 									lostCredits = 0;
 									break;

@@ -1,6 +1,7 @@
 package controller.tcp;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
@@ -18,12 +19,14 @@ public class TCPListenerThread extends Thread {
 	private UserManager userManager = null;
 	private NodeManager nodeManager = null;
 	private Config config;
+	private PrintStream serverStream;
 
-	public TCPListenerThread(ServerSocket serverSocket, UserManager userManager, NodeManager nodeManager, Config config) {
+	public TCPListenerThread(ServerSocket serverSocket, UserManager userManager, NodeManager nodeManager, Config config, PrintStream serverStream) {
 		this.serverSocket = serverSocket;
 		this.userManager = userManager;
 		this.nodeManager = nodeManager;
 		this.config = config;
+		this.serverStream = serverStream;
 	}
 
 	public void run() {
@@ -39,7 +42,7 @@ public class TCPListenerThread extends Thread {
 				socketManager.add(socket);
 
 				//Process Socket in separate Thread
-				threadPool.execute(new TCPSocketProcessor(socket, socketManager, userManager, nodeManager, config));
+				threadPool.execute(new TCPSocketProcessor(socket, socketManager, userManager, nodeManager, config, serverStream));
 
 			}
 			
