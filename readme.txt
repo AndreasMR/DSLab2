@@ -1,15 +1,7 @@
 Reflect about your solution!
 
 Stage 1:
-A two-stage commit protocol was implemented for new nodes signing in with the cloud controller. When a node comes online, it first requests data about the active nodes and available resources
-from the cloud controller. It then decodes the answer and calculates the resource share for every node if it were to sign on.
-If its own resource requirements exceed this share, it shuts down immediately. Otherwise it creates a NodeCommitter object
-which inquires of the other nodes if the calculated share is sufficient. It does this by spawning a separate thread
-running a NodeMessenger Runnable for each other node and waiting for the result. The NodeMessengers first send their
-nodes the share of resources. Upon receiving the answer (accept/reject) they set a boolean variable to false if the
-answer is negative and in either case wait until their brethren are finished with the first round. The last to finish
-wakes the others (and the NodeMessenger) and they send either commit or rollback messages. The NodeMessenger returns true
-if the node can come online and false otherwise. Dependent on this the node either comes online or shuts down.
+A two-stage commit protocol was implemented for new nodes signing in with the cloud controller. When a node comes online, it first requests data about the active nodes and available resources from the cloud controller. It then decodes the answer and calculates the resource share for every node if it were to sign on. If its own resource requirements exceed this share, it shuts down immediately. Otherwise it creates a NodeCommitter object which inquires of the other nodes if the calculated share is sufficient. It does this by spawning a separate thread running a NodeMessenger Runnable for each other node and waiting for the result. The NodeMessengers first send their nodes the share of resources. Upon receiving the answer (accept/reject) they set a boolean variable to false if the answer is negative and in either case wait until their brethren are finished with the first round. The last to finish wakes the others (and the NodeMessenger) and they send either commit or rollback messages. The NodeMessenger returns true if the node can come online and false otherwise. Dependent on this the node either comes online or shuts down.
 
 Stage 2:
 
